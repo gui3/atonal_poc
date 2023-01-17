@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta http-equiv="X-UA-Compatible" content="IE=edge">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Atonal Project - Freed from keys</title>
+</head>
+<body>
+	<h1>Atonal Project</h1>
+	<blockquote>Music freed from keys</blockquote>
+
+	<hr/>
+
+	<div id="demo-control"></div>
+
+	<hr>
+
+</body>
+<script src="atonal_control.js"></script>
+<script>
+const controller = new AtonalController({
+	document,
+	target: document.getElementById("demo-control")
+})
+</script>
+</html>
