@@ -11,8 +11,10 @@ class AtonalController {
 
 		this.events = []
 		this.refreshing = false
+		this.clicking = false
 		
 		this.mount(this.doc, this.target)
+		this.resize()
 
 		this.refreshInterval = setInterval(
 			this.refresh.bind(this),
@@ -52,26 +54,36 @@ class AtonalController {
 		//this.canvas.style.height = "80%"
 		this.canvas.style.flex = 1
 
-		this.canvas.ontouchstart = this.touchStart.bind(this)
-		this.canvas.ontouchmove = this.touchMove.bind(this)
-		this.canvas.ontouchcancel = this.touchEnd.bind(this)
-		this.canvas.ontouchEnd = this.touchEnd.bind(this)
+		// this.canvas.ontouchstart = this.touchStart.bind(this)
+		// this.canvas.ontouchmove = this.touchMove.bind(this)
+		// this.canvas.ontouchcancel = this.touchEnd.bind(this)
+		// this.canvas.ontouchEnd = this.touchEnd.bind(this)
 
-		this.canvas.onmousedown = this.touchStart.bind(this)
-		this.canvas.ondrag = this.touchMove.bind(this)
-		this.canvas.onmouseup = this.touchEnd.bind(this)
+		this.canvas.onmousedown = this.trackStart.bind(this)
+		this.canvas.onmousemove = this.trackMove.bind(this)
+		this.canvas.onmouseup = this.trackEnd.bind(this)
 
 		this.display = this.canvas.getContext("2d")
 
 		this.logs = document.createElement("div")
 		// this.logs.style.height = "100%"
-		this.logs.style.width = "40%"
+		this.logs.style.minWidth = "40%"
+		this.logs.style.flex = 1
 		this.logs.style.overflow = "auto"
 		
 		this.container.appendChild(this.canvas)
 		this.container.appendChild(this.logs)
 
+		document.onresize = this.resize.bind(this)
+
 		return this.container
+	}
+
+	resize () {
+		console.log(this.canvas.getBoundingClientRect())
+		this.canvas.width = this.canvas.getBoundingClientRect().width
+		this.canvas.height = this.canvas.getBoundingClientRect().height
+		this.draw()
 	}
 
 	log (message) {
@@ -82,8 +94,11 @@ class AtonalController {
 
 	refresh () {
 		if (this.refreshing) {
-			console.log("refreshing")
+			//console.log("refreshing")
 			this.draw()
+			if (this.events.length === 0) {
+				this.refreshing = false
+			}
 		}
 	}
 
@@ -92,21 +107,21 @@ class AtonalController {
 		this.display.fillRect(0, 0, this.canvas.width, this.canvas.height)
 
 		this.display.fillStyle = "#fff"
-		for (e of this.events) {
+		for (let e of this.events) {
 			if (e.type = "contact") {
-				this.display.fillCircle(e.x, e.y, 20, 20)
+				this.display.fillRect(e.x, e.y, 20, 20)
 			}
 		}
 	}
 
-	touchStart (evt) {
+	trackStart (evt) {
 		this.log("touchstart")
-		console.log(evt)
+		//console.log(evt)
 
 		const x = evt.offsetX
 		const y = evt.offsetY
 
-		const event = {
+		const event1 = {
 			type: "contact",
 			startX: x,
 			startY: y,
@@ -114,20 +129,35 @@ class AtonalController {
 			y
 		}
 
-		this.events.push(event)
+		const event2 = {
+			type: "hit",
+			x,
+			y
+		}
+
+		this.events.push(event1)
+		this.events.push(event2)
 		this.refreshing = true
+		this.clicking = true
 	}
-	touchMove (evt) {
-		this.log("touchmove")
-		console.log(evt)
+	trackMove (evt) {
+		if (this.clicking) {
+			this.log("touchmove")
+			//console.log(evt)
+
+			const x = evt.offsetX
+			const y = evt.offsetY
+
+			this.events[0].x = x
+			this.events[0].y = y
+		}
 	}
-	touchEnd (evt) {
+	trackEnd (evt) {
 		this.log("touchend")
-		console.log(evt)
+		//console.log(evt)
 
 		this.events.pop()
-		if (this.events.length === 0){
-			this.refreshing = false
-		}
+
+		this.clicking = false
 	}
 }
