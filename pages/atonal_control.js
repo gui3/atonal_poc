@@ -8,6 +8,9 @@ class AtonalController {
 		this.height = options.height || "400px"
 		this.pos = options.position || 50
 		this.zoom = options.zoom || 100
+		this.HIT_TIME = options.HIT_TIME || 300
+		this.HIT_ZONE = options.HIT_ZONE || 100
+		this.TRACK_ZONE = options.TRACK_ZONE || 5
 
 		this.events = []
 		this.refreshing = false
@@ -18,7 +21,7 @@ class AtonalController {
 
 		this.refreshInterval = setInterval(
 			this.refresh.bind(this),
-			1000 / 24
+			1000 / 60
 		)
 	}
 
@@ -62,6 +65,7 @@ class AtonalController {
 		this.canvas.onmousedown = this.trackStart.bind(this)
 		this.canvas.onmousemove = this.trackMove.bind(this)
 		this.canvas.onmouseup = this.trackEnd.bind(this)
+		this.canvas.onmouseleave = this.trackEnd.bind(this)
 
 		this.display = this.canvas.getContext("2d")
 
@@ -93,13 +97,13 @@ class AtonalController {
 	}
 
 	refresh () {
-		if (this.refreshing) {
+		//if (this.refreshing) {
 			//console.log("refreshing")
 			this.draw()
 			if (this.events.length === 0) {
 				this.refreshing = false
 			}
-		}
+		//}
 	}
 
 	draw() {
@@ -107,14 +111,32 @@ class AtonalController {
 		this.display.fillRect(0, 0, this.canvas.width, this.canvas.height)
 
 		this.display.fillStyle = "#fff"
+		this.display.strokeStyle = '#fff';
 		for (let e of this.events) {
-			if (e.type = "contact") {
-				this.display.fillRect(e.x, e.y, 20, 20)
+			switch (e.type) {
+				case "contact":
+					this.display.beginPath()
+					this.display.arc(e.x, e.y, this.TRACK_ZONE, 0, 2 * Math.PI, false)
+					this.display.fill()
+					break
+				case "hit":
+					const time = Date.now() - e.date
+					const percent = time / this.HIT_TIME * e.factor
+					const radius = this.HIT_ZONE * percent
+					this.display.beginPath()
+					this.display.arc(e.x, e.y, radius, 0, 2 * Math.PI, false)
+					this.display.lineWidth = 10 * (1 - percent) * e.factor
+					this.display.stroke();
+					e.ended = time > this.HIT_TIME
+					break
 			}
 		}
+
+		this.events = this.events.filter(e => !e.ended)
 	}
 
 	trackStart (evt) {
+		evt.preventDefault()
 		this.log("touchstart")
 		//console.log(evt)
 
@@ -132,7 +154,9 @@ class AtonalController {
 		const event2 = {
 			type: "hit",
 			x,
-			y
+			y,
+			factor: 1,
+			date: Date.now()
 		}
 
 		this.events.push(event1)
@@ -141,22 +165,37 @@ class AtonalController {
 		this.clicking = true
 	}
 	trackMove (evt) {
-		if (this.clicking) {
-			this.log("touchmove")
-			//console.log(evt)
+		evt.preventDefault()
+		if (!this.clicking) return
+		this.log("touchmove")
+		//console.log(evt)
 
-			const x = evt.offsetX
-			const y = evt.offsetY
+		const x = evt.offsetX
+		const y = evt.offsetY
 
-			this.events[0].x = x
-			this.events[0].y = y
-		}
+		this.events[0].x = x
+		this.events[0].y = y
 	}
 	trackEnd (evt) {
+		evt.preventDefault()
+		if (!this.clicking) return
 		this.log("touchend")
 		//console.log(evt)
 
-		this.events.pop()
+		const x = evt.offsetX
+		const y = evt.offsetY
+
+		this.events = this.events.filter(e => e.type !== "contact")
+
+		const event = {
+			type: "hit",
+			x,
+			y,
+			factor: 0.5,
+			date: Date.now()
+		}
+
+		this.events.push(event)
 
 		this.clicking = false
 	}
