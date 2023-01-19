@@ -1,4 +1,88 @@
 
+class AtonalDemoSynth {
+	constructor (options = {}) {
+		this.doc = options.document
+		this.target = options.target 
+		this.width = options.width || "100%"
+		this.height = options.height || "400px"
+
+		this.initialized = false
+		this.MAX_FREQ = 6000;
+		this.MAX_VOL = 0.02;
+		this.INIT_VOL = 0.001;
+
+		if (this.target && typeof this.target.appendChild === "function") {
+			this.mount(this.doc, this.target)
+		}
+	}
+
+	initAudio () {
+		if (this.initialized) return
+		this.initialized = true
+
+		const AudioContext = document.defaultView.AudioContext
+			|| document.defaultView.webkitAudioContext
+		this.audioCtx = new AudioContext()
+
+		// create Oscillator and gain node
+		this.osc1 = this.audioCtx.createOscillator();
+		this.gainNode = this.audioCtx.createGain();
+
+		// connect oscillator to gain node to speakers
+		this.osc1.connect(this.gainNode);
+		this.gainNode.connect(this.audioCtx.destination);
+		
+		// set options for the oscillator
+		this.osc1.detune.value = 100; // value in cents
+		this.osc1.start(0);
+
+		this.osc1.onended = function () {
+			console.log("Your tone has now stopped playing!");
+		};
+
+		//this.gainNode.gain.value = this.INIT_VOL;
+		// this.gainNode.gain.minValue = this.INIT_VOL;
+		// this.gainNode.gain.maxValue = this.INIT_VOL;
+		
+		this.inOscPitch.addEventListener("input", evt => {
+			const val = Math.max(150, Math.log(evt.target.value) / Math.log(1200) * this.MAX_FREQ)
+			console.log(val)
+			this.osc1.frequency.value = val
+			// this.gainNode.gain.value = (KeyY / HEIGHT) * maxVol;
+		})
+	}
+
+	mount (document = null, target = null) {
+		document = document || this.doc
+		target = target || this.target
+		if (!document || typeof document.createElement !== "function")
+			throw new Error("Invalid document object")
+		if (!target || typeof target.appendChild !== "function")
+			target = document.body
+
+		target.appendChild(this.create(this.doc))
+		this.log("ready")
+	}
+
+	create (document = null) {
+		document = document || this.doc
+		if (!document || typeof document.createElement !== "function")
+			throw new Error("Invalid document object")
+
+		this.container = document.createElement("div")
+		
+		this.inOscPitch = document.createElement("input")
+		this.inOscPitch.type = "range"
+
+		this.container.appendChild(this.inOscPitch)
+
+		return this.container
+	}
+
+	log(message) {
+		console.log(message)
+	}
+}
 
 class AtonalController {
 	constructor (options = {}) {
@@ -8,15 +92,17 @@ class AtonalController {
 		this.height = options.height || "400px"
 		this.pos = options.position || 50
 		this.zoom = options.zoom || 100
-		this.HIT_TIME = options.HIT_TIME || 300
-		this.HIT_ZONE = options.HIT_ZONE || 100
+		this.HIT_TIME = options.HIT_TIME || 1000
+		this.HIT_ZONE = options.HIT_ZONE || 200
 		this.TRACK_ZONE = options.TRACK_ZONE || 5
 
 		this.events = []
 		this.refreshing = false
 		this.clicking = false
 		
-		this.mount(this.doc, this.target)
+		if (this.target && typeof this.target.appendChild === "function") {
+			this.mount(this.doc, this.target)
+		}
 		this.resize()
 
 		this.refreshInterval = setInterval(
@@ -53,9 +139,13 @@ class AtonalController {
 		this.canvas.appendChild(
 			document.createTextNode("Your browser does not support canvas")
 		)
-		//this.canvas.style.width = "60%"
-		//this.canvas.style.height = "80%"
-		this.canvas.style.flex = 1
+		this.canvas.style.width = "100%"
+		this.canvas.style.height = "100%"
+
+		this.canvasContainer = document.createElement("div")
+		this.canvasContainer.style.flex = 4
+		this.canvasContainer.style.overflow = "show"
+		this.canvasContainer.appendChild(this.canvas)
 
 		// this.canvas.ontouchstart = this.touchStart.bind(this)
 		// this.canvas.ontouchmove = this.touchMove.bind(this)
@@ -71,22 +161,38 @@ class AtonalController {
 
 		this.logs = document.createElement("div")
 		// this.logs.style.height = "100%"
-		this.logs.style.minWidth = "40%"
+		//this.logs.style.minWidth = "40%"
 		this.logs.style.flex = 1
 		this.logs.style.overflow = "auto"
 		
-		this.container.appendChild(this.canvas)
+		this.container.appendChild(this.canvasContainer)
 		this.container.appendChild(this.logs)
+		
+		this.demoSynth = new AtonalDemoSynth({
+			document: this.doc,
+			target: this.container
+		})
+		this.demoSynth.container.style.flex = 1
 
-		document.onresize = this.resize.bind(this)
+		this.container.addEventListener(
+			"click",
+			this.demoSynth.initAudio.bind(this.demoSynth)
+		)
+		this.container.addEventListener(
+			"touchstart",
+			this.demoSynth.initAudio.bind(this.demoSynth)
+		)
+
+		//document.onresize = this.resize.bind(this)
+		document.defaultView.addEventListener("resize", this.resize.bind(this), true)
 
 		return this.container
 	}
 
 	resize () {
-		console.log(this.canvas.getBoundingClientRect())
-		this.canvas.width = this.canvas.getBoundingClientRect().width
-		this.canvas.height = this.canvas.getBoundingClientRect().height
+		const styles = getComputedStyle(this.canvasContainer)
+		this.canvas.width = parseInt(styles.getPropertyValue("width"), 10)
+		this.canvas.height = parseInt(styles.getPropertyValue("height"), 10)
 		this.draw()
 	}
 
@@ -125,9 +231,9 @@ class AtonalController {
 					const radius = this.HIT_ZONE * percent
 					this.display.beginPath()
 					this.display.arc(e.x, e.y, radius, 0, 2 * Math.PI, false)
-					this.display.lineWidth = 10 * (1 - percent) * e.factor
+					this.display.lineWidth = 5 * (1 - percent) * e.factor
 					this.display.stroke();
-					e.ended = time > this.HIT_TIME
+					e.ended = time > this.HIT_TIME * 2
 					break
 			}
 		}
@@ -137,7 +243,6 @@ class AtonalController {
 
 	trackStart (evt) {
 		evt.preventDefault()
-		this.log("touchstart")
 		//console.log(evt)
 
 		const x = evt.offsetX
@@ -167,19 +272,18 @@ class AtonalController {
 	trackMove (evt) {
 		evt.preventDefault()
 		if (!this.clicking) return
-		this.log("touchmove")
 		//console.log(evt)
 
 		const x = evt.offsetX
 		const y = evt.offsetY
 
-		this.events[0].x = x
-		this.events[0].y = y
+		const contact = this.events.filter(e => e.type === "contact")[0]
+		contact.x = x
+		contact.y = y
 	}
 	trackEnd (evt) {
 		evt.preventDefault()
 		if (!this.clicking) return
-		this.log("touchend")
 		//console.log(evt)
 
 		const x = evt.offsetX
