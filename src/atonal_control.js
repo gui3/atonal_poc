@@ -1,5 +1,5 @@
 
-class AtonalDemoSynth {
+class AtonalMonoSynth {
 	constructor (options = {}) {
 		this.doc = options.document
 		this.target = options.target 
@@ -8,8 +8,8 @@ class AtonalDemoSynth {
 
 		this.initialized = false
 		this.MAX_FREQ = 6000;
-		this.MAX_VOL = 0.02;
-		this.INIT_VOL = 0.001;
+		this.MAX_VOL = 0.35;
+		this.INIT_VOL = 0;
 
 		if (this.target && typeof this.target.appendChild === "function") {
 			this.mount(this.doc, this.target)
@@ -33,6 +33,7 @@ class AtonalDemoSynth {
 		this.gainNode.connect(this.audioCtx.destination);
 		
 		// set options for the oscillator
+		this.osc1.type = "sawtooth"
 		this.osc1.detune.value = 100; // value in cents
 		this.osc1.start(0);
 
@@ -40,16 +41,32 @@ class AtonalDemoSynth {
 			console.log("Your tone has now stopped playing!");
 		};
 
-		//this.gainNode.gain.value = this.INIT_VOL;
+		this.gainNode.gain.value = this.INIT_VOL;
 		// this.gainNode.gain.minValue = this.INIT_VOL;
 		// this.gainNode.gain.maxValue = this.INIT_VOL;
 		
-		this.inOscPitch.addEventListener("input", evt => {
-			const val = Math.max(150, Math.log(evt.target.value) / Math.log(1200) * this.MAX_FREQ)
-			console.log(val)
-			this.osc1.frequency.value = val
+		this.inRibbon.addEventListener("input", evt => {
+			const freq = 440 * Math.pow(2, (evt.target.value - 50) / 24)
+			this.setPitch(freq)
 			// this.gainNode.gain.value = (KeyY / HEIGHT) * maxVol;
 		})
+
+		this.inRibbon.addEventListener("mouseenter", evt => {
+			this.setGain(100)
+		})
+		this.inRibbon.addEventListener("mouseleave", evt => {
+			this.setGain(0)
+		})
+	}
+
+	setPitch (freq) {
+		if (this.initialized)
+			this.osc1.frequency.value = freq
+	}
+
+	setGain (ratio) {
+		if (this.initialized)
+			this.gainNode.gain.value = ratio * this.MAX_VOL
 	}
 
 	mount (document = null, target = null) {
@@ -71,10 +88,10 @@ class AtonalDemoSynth {
 
 		this.container = document.createElement("div")
 		
-		this.inOscPitch = document.createElement("input")
-		this.inOscPitch.type = "range"
+		this.inRibbon = document.createElement("input")
+		this.inRibbon.type = "range"
 
-		this.container.appendChild(this.inOscPitch)
+		this.container.appendChild(this.inRibbon)
 
 		return this.container
 	}
@@ -168,19 +185,19 @@ class AtonalController {
 		this.container.appendChild(this.canvasContainer)
 		this.container.appendChild(this.logs)
 		
-		this.demoSynth = new AtonalDemoSynth({
+		this.monoSynth = new AtonalMonoSynth({
 			document: this.doc,
 			target: this.container
 		})
-		this.demoSynth.container.style.flex = 1
+		this.monoSynth.container.style.flex = 1
 
 		this.container.addEventListener(
 			"click",
-			this.demoSynth.initAudio.bind(this.demoSynth)
+			this.monoSynth.initAudio.bind(this.monoSynth)
 		)
 		this.container.addEventListener(
 			"touchstart",
-			this.demoSynth.initAudio.bind(this.demoSynth)
+			this.monoSynth.initAudio.bind(this.monoSynth)
 		)
 
 		//document.onresize = this.resize.bind(this)
@@ -241,12 +258,20 @@ class AtonalController {
 		this.events = this.events.filter(e => !e.ended)
 	}
 
+	note (x, y) {
+		const w = this.canvas.width
+		this.monoSynth.setPitch(440 * Math.pow(2, (x - w / 2) * 50 / w / 12))
+		this.monoSynth.setGain(1 - y / this.canvas.height)
+	}
+
 	trackStart (evt) {
 		evt.preventDefault()
 		//console.log(evt)
 
 		const x = evt.offsetX
 		const y = evt.offsetY
+
+		this.note(x, y)
 
 		const event1 = {
 			type: "contact",
@@ -277,14 +302,19 @@ class AtonalController {
 		const x = evt.offsetX
 		const y = evt.offsetY
 
+		this.note(x, y)
+
 		const contact = this.events.filter(e => e.type === "contact")[0]
 		contact.x = x
 		contact.y = y
+
 	}
 	trackEnd (evt) {
 		evt.preventDefault()
 		if (!this.clicking) return
 		//console.log(evt)
+
+		this.monoSynth.setGain(0)
 
 		const x = evt.offsetX
 		const y = evt.offsetY
