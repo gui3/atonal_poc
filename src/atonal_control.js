@@ -113,6 +113,7 @@ class AtonalController {
 		this.HIT_ZONE = options.HIT_ZONE || 200
 		this.TRACK_ZONE = options.TRACK_ZONE || 5
 
+		//this.mode = "touch"
 		this.events = []
 		this.refreshing = false
 		this.clicking = false
@@ -164,10 +165,10 @@ class AtonalController {
 		this.canvasContainer.style.overflow = "show"
 		this.canvasContainer.appendChild(this.canvas)
 
-		// this.canvas.ontouchstart = this.touchStart.bind(this)
-		// this.canvas.ontouchmove = this.touchMove.bind(this)
-		// this.canvas.ontouchcancel = this.touchEnd.bind(this)
-		// this.canvas.ontouchEnd = this.touchEnd.bind(this)
+		this.canvas.ontouchstart = this.trackStart.bind(this)
+		this.canvas.ontouchmove = this.trackMove.bind(this)
+		this.canvas.ontouchcancel = this.trackEnd.bind(this)
+		this.canvas.ontouchEnd = this.trackEnd.bind(this)
 
 		this.canvas.onmousedown = this.trackStart.bind(this)
 		this.canvas.onmousemove = this.trackMove.bind(this)
